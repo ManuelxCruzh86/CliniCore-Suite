@@ -1,0 +1,22 @@
+# Build results
+bin/
+obj/
+
+# Visual Studio cache
+.vs/
+
+# User-specific files
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Backup files
+*.bak
+
+# Debug files
+*.pdb
