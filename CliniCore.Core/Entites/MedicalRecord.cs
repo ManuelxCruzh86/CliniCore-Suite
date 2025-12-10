@@ -25,5 +25,6 @@ namespace CliniCore.Core.Entities
 
         // Auditoría
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     }
 }
