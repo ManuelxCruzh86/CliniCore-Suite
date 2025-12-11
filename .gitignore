@@ -20,3 +20,10 @@ obj/
 
 # Debug files
 *.pdb
+
+# Local settings and secrets
+CliniCore.API/appsettings.json
+
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
