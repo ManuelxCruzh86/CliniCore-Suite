@@ -49,6 +49,10 @@ namespace CliniCore.API.Controllers
         [HttpPost]
         public async Task<ActionResult<Appointment>> PostAppointment(CreateAppointmentDto dto)
         {
+            if (dto.ScheduledDate < DateTime.UtcNow)
+            {
+                return BadRequest("No puedes agendar citas en el pasado, Padre Santo.");
+            }
             //  Validar que el Paciente exista
             var pacienteExiste = await _context.Patients.AnyAsync(p => p.Id == dto.PatientId);
             if (!pacienteExiste)
@@ -61,6 +65,18 @@ namespace CliniCore.API.Controllers
             if (!doctorExiste)
             {
                 return BadRequest($"El Doctor con ID {dto.DoctorId} no existe.");
+            }
+
+            // Validar disponibilidad del Doctor 
+            // Buscamos si existe alguna cita para ESTE doctor a ESTA misma hora
+            var doctorOcupado = await _context.Appointments
+                .AnyAsync(a => a.DoctorId == dto.DoctorId
+                            && a.ScheduledDate == dto.ScheduledDate
+                            && a.Status != "Cancelled"); // Ignoramos las canceladas
+
+            if (doctorOcupado)
+            {
+                return BadRequest($"El doctor ya tiene una cita agendada para el {dto.ScheduledDate}.");
             }
 
             // Crear la Cita
