@@ -3,11 +3,13 @@ using CliniCore.Core.Entities;
 using CliniCore.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CliniCore.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]  //CANDADO MAESTRO: Requiere autenticación para acceder a este controlador
     public class PacientesController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

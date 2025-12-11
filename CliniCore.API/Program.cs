@@ -1,37 +1,52 @@
 using Scalar.AspNetCore; 
 using CliniCore.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer; 
+using Microsoft.IdentityModel.Tokens;                
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-builder.Services.AddEndpointsApiExplorer();
-//builder.Services.AddSwaggerGen();
-
-
-
-//-------------------------------------------------------------------
-
-//CONFIGURACIÓN DE BASE DE DATOS
-
-// 1. Leemos la cadena de conexión del appsettings.json
+// Configuración de Base de Datos
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-// 2. Inyectamos el DbContext usando MySQL (Pomelo)
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
-//FIN DE CONFIGURACIÓN
+// CONFIGURACIÓN DE SEGURIDAD JWT 
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var key = Encoding.ASCII.GetBytes(jwtSettings.GetValue<string>("Key")!);
 
-// Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddAuthentication(options =>
+{
+    
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings.GetValue<string>("Issuer"),
+        ValidateAudience = true,
+        ValidAudience = jwtSettings.GetValue<string>("Audience"),
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
 
 //-------------------------------------------------------------------
 
 
 // Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
@@ -47,19 +62,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthorization();
+
+//ACTIVAR SEGURIDAD
+app.UseAuthentication(); //  Verifica el Token
+app.UseAuthorization();  //  Verifica permisos
 app.MapControllers();
 //app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
