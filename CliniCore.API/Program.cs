@@ -4,8 +4,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using Microsoft.IdentityModel.Tokens;                
 using System.Text;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configura la licencia Community
+QuestPDF.Settings.License = LicenseType.Community;
+
 
 // Configuración de Base de Datos
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");

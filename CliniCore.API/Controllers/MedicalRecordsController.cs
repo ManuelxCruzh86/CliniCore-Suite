@@ -3,6 +3,8 @@ using CliniCore.Infrastructure.Data;
 using CliniCore.API.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using CliniCore.API.Services;
+
 
 namespace CliniCore.API.Controllers
 {
@@ -87,6 +89,40 @@ namespace CliniCore.API.Controllers
             await _context.SaveChangesAsync();
 
             return CreatedAtAction("GetMedicalRecord", new { id = medicalRecord.Id }, medicalRecord);
+        }
+
+        // GET: api/MedicalRecords/5/Prescription
+        // Descargar la receta en PDF
+        [HttpGet("{id}/Prescription")]
+        public async Task<IActionResult> DownloadPrescription(int id)
+        {
+            var record = await _context.MedicalRecords
+                                       .Include(r => r.Appointment)
+                                       .ThenInclude(a => a.Patient)
+                                       .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (record == null) return NotFound("Expediente no encontrado.");
+
+            var pdfBytes = PrescriptionService.GeneratePdf(record);
+
+            // Definimos el nombre y la carpeta
+            var nombreArchivo = $"Receta_Paciente_{record.Appointment.PatientId}_{DateTime.Now.Ticks}.pdf";
+
+            // Usamos Path.Combine para que funcione en Windows y Linux
+            var carpetaGuardado = Path.Combine(Directory.GetCurrentDirectory(), "RecetasGeneradas");
+            var rutaCompleta = Path.Combine(carpetaGuardado, nombreArchivo);
+
+            //  Creamos la carpeta si no existe 
+            if (!Directory.Exists(carpetaGuardado))
+            {
+                Directory.CreateDirectory(carpetaGuardado);
+            }
+
+            // D. Escribimos el archivo en el disco duro del servidor
+            System.IO.File.WriteAllBytes(rutaCompleta, pdfBytes);
+
+            // 4. Devolvemos el archivo al navegador para que el doctor lo vea
+            return File(pdfBytes, "application/pdf", nombreArchivo);
         }
     }
 }
