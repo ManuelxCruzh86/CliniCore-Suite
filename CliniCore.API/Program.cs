@@ -52,6 +52,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddScoped<CliniCore.API.Services.DataSeederService>();
 
 var app = builder.Build();
 

@@ -9,6 +9,7 @@ namespace CliniCore.API.Controllers
 {
     [Route("api/fhir")]
     [ApiController]
+    [Authorize]
     public class FhirController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

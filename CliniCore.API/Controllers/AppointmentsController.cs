@@ -8,6 +8,7 @@ namespace CliniCore.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class AppointmentsController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
