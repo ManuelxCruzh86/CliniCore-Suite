@@ -1,5 +1,6 @@
 using CliniCore.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CliniCore.API.Controllers
 {

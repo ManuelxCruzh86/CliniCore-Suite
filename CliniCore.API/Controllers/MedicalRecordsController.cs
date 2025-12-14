@@ -4,6 +4,7 @@ using CliniCore.API.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CliniCore.API.Services;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace CliniCore.API.Controllers

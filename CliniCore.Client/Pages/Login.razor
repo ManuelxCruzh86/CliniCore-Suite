@@ -1,0 +1,75 @@
+﻿@page "/login"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<PageTitle>Login - CliniCore</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center vh-100" style="margin-top: 50px;">
+    <div class="card shadow" style="width: 400px;">
+        <div class="card-header bg-primary text-white text-center">
+            <h3>🔐 Acceso CliniCore</h3>
+        </div>
+        <div class="card-body">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Usuario</label>
+                    <InputText @bind-Value="loginModel.Username" class="form-control" placeholder="Ej: admin" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Contraseña</label>
+                    <InputText @bind-Value="loginModel.Password" type="password" class="form-control" placeholder="Ej: 123" />
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">Ingresar</button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginDto loginModel = new LoginDto();
+    private string errorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        errorMessage = ""; // Limpiar errores previos
+
+        try
+        {
+            // 1. Llamamos a la API
+            var response = await Http.PostAsJsonAsync("api/Auth/Login", loginModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // 2. Leemos el Token de la respuesta
+                var result = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
+                
+                // 3. Guardamos el Token en el navegador (LocalStorage)
+                await LocalStorage.SetItemAsync("authToken", result?.Token);
+
+                // 4. Redirigimos al inicio
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = "Credenciales inválidas, Padre Santo.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error de conexión: {ex.Message}";
+        }
+    }
+}
