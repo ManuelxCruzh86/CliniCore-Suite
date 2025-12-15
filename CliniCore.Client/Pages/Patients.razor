@@ -11,7 +11,9 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3>👥 Listado de Pacientes</h3>
-        <button class="btn btn-success"><span class="bi bi-plus-circle"></span> Nuevo Paciente</button>
+        <a href="patients/create" class="btn btn-success">
+            <span class="bi bi-plus-circle"></span> Nuevo Paciente
+        </a>
     </div>
 
     @if (errorMessage != null)
@@ -68,7 +70,9 @@
                                 }
                             </td>
                             <td>
-                                <button class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i> Ver</button>
+                                <a href="patients/@p.Id" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i> Ver
+                                </a>
                             </td>
                         </tr>
                     }
