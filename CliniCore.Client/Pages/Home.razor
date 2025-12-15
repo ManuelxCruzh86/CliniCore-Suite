@@ -1,7 +1,122 @@
 ﻿@page "/"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard - CliniCore</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="container mt-4">
+    <div class="text-center mb-5">
+        <h1 class="display-4 text-primary fw-bold">CliniCore Suite</h1>
+        <p class="lead text-muted">Bienvenido al Panel de Control, Padre Santo.</p>
+    </div>
 
-Welcome to your new app.
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Calculando estadísticas...</p>
+        </div>
+    }
+    else if (stats != null)
+    {
+        <div class="row text-center">
+            
+            <div class="col-md-4 mb-3">
+                <div class="card shadow border-0 h-100 py-3">
+                    <div class="card-body">
+                        <div class="display-4 text-success mb-2">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                        <h2 class="card-title">@stats.TotalPatients</h2>
+                        <p class="card-text text-muted text-uppercase fw-bold">Pacientes Registrados</p>
+                        <a href="patients" class="btn btn-sm btn-outline-success mt-2">Ver Lista</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card shadow border-0 h-100 py-3">
+                    <div class="card-body">
+                        <div class="display-4 text-info mb-2">
+                            <i class="bi bi-heart-pulse-fill"></i>
+                        </div>
+                        <h2 class="card-title">@stats.TotalDoctors</h2>
+                        <p class="card-text text-muted text-uppercase fw-bold">Doctores Activos</p>
+                        <button class="btn btn-sm btn-outline-info mt-2" disabled>Directorio</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="card shadow border-0 h-100 py-3">
+                    <div class="card-body">
+                        <div class="display-4 text-warning mb-2">
+                            <i class="bi bi-calendar-event-fill"></i>
+                        </div>
+                        <h2 class="card-title">@stats.PendingAppointments</h2>
+                        <p class="card-text text-muted text-uppercase fw-bold">Citas Pendientes</p>
+                        <button class="btn btn-sm btn-outline-warning mt-2" disabled>Ir a Agenda</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-5 p-4 bg-light rounded border">
+            <h4><i class="bi bi-lightning-charge"></i> Acciones Rápidas</h4>
+            <div class="d-flex gap-3 mt-3">
+                <a href="patients/create" class="btn btn-primary">
+                    <i class="bi bi-person-plus"></i> Registrar Paciente
+                </a>
+                <a href="patients" class="btn btn-secondary">
+                    <i class="bi bi-search"></i> Buscar Expediente
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning text-center">
+            No pudimos cargar los datos. ¿Ya iniciaste sesión?
+            <br />
+            <a href="login" class="btn btn-primary mt-2">Ir al Login</a>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardStatsDto? stats;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+
+            if (string.IsNullOrEmpty(token))
+            {
+                // Si no hay token, no intentamos cargar nada, mostramos mensaje
+                isLoading = false;
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            
+            // Llamamos al nuevo endpoint
+            stats = await Http.GetFromJsonAsync<DashboardStatsDto>("api/Dashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error dashboard: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

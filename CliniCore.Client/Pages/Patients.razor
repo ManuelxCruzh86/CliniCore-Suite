@@ -1,10 +1,11 @@
 ﻿@page "/patients"
 @using CliniCore.Client.DTOs
 @using Blazored.LocalStorage
-@using System.Net.Http.Headers 
+@using System.Net.Http.Headers
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
 @inject NavigationManager Navigation
+@inject IJSRuntime JS 
 
 <PageTitle>Patients - CliniCore</PageTitle>
 
@@ -24,10 +25,8 @@
     @if (patients == null)
     {
         <div class="text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-            <p>Cargando datos del servidor...</p>
+            <div class="spinner-border text-primary" role="status"></div>
+            <p>Cargando datos...</p>
         </div>
     }
     else if (!patients.Any())
@@ -45,8 +44,7 @@
                         <th>Edad</th>
                         <th>Género</th>
                         <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
+                        <th>Acciones</th> </tr>
                 </thead>
                 <tbody>
                     @foreach (var p in patients)
@@ -70,9 +68,20 @@
                                 }
                             </td>
                             <td>
-                                <a href="patients/@p.Id" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i> Ver
-                                </a>
+                                <div class="btn-group" role="group">
+                                    
+                                    <a href="patients/@p.Id" class="btn btn-sm btn-outline-primary" title="Ver Expediente">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+
+                                    <a href="patients/edit/@p.Id" class="btn btn-sm btn-outline-warning" title="Editar">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <button class="btn btn-sm btn-outline-danger" title="Eliminar" @onclick="() => DeletePatient(p.Id, p.FirstName)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     }
@@ -90,31 +99,50 @@
     {
         try
         {
-            // 1. RECUPERAR EL TOKEN DEL LOCALSTORAGE
             var token = await LocalStorage.GetItemAsync<string>("authToken");
-
-            // 2. SI NO HAY TOKEN, SACAR AL USUARIO (Redirigir al Login)
             if (string.IsNullOrEmpty(token))
             {
                 Navigation.NavigateTo("/login");
                 return;
             }
 
-            // 3. ADJUNTAR EL TOKEN A LA PETICIÓN (Aquí está la clave de seguridad)
             Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-            // 4. PEDIR LOS DATOS A LA API
+            // OJO: Nos aseguramos de llamar a "Pacientes" (en español, como está en la API)
             patients = await Http.GetFromJsonAsync<List<PatientDto>>("api/Pacientes");
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-        {
-            // Si el token venció o es falso
-            errorMessage = "Su sesión ha expirado. Por favor, ingrese nuevamente.";
-            Navigation.NavigateTo("/login");
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error al cargar pacientes: {ex.Message}";
+            errorMessage = $"Error al cargar: {ex.Message}";
+        }
+    }
+
+    // --- LÓGICA PARA ELIMINAR ---
+    private async Task DeletePatient(int id, string name)
+    {
+        // 1. Preguntar confirmación (JavaScript nativo)
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar a {name}? Esta acción no se puede deshacer.");
+        
+        if (confirmed)
+        {
+            try 
+            {
+                // 2. Llamar a la API (DELETE)
+                var response = await Http.DeleteAsync($"api/Pacientes/{id}");
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    // 3. Quitar de la lista visualmente para no tener que recargar
+                    patients?.RemoveAll(p => p.Id == id);
+                }
+                else 
+                {
+                    errorMessage = "No se pudo eliminar. Puede que tenga datos relacionados.";
+                }
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error: {ex.Message}";
+            }
         }
     }
 }
