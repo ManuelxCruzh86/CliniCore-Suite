@@ -60,7 +60,7 @@
                 await LocalStorage.SetItemAsync("authToken", result?.Token);
 
                 // 4. Redirigimos al inicio
-                Navigation.NavigateTo("/");
+                Navigation.NavigateTo("/", forceLoad: true);
             }
             else
             {

@@ -1,0 +1,78 @@
+﻿@page "/patients/{patientId:int}/new-consultation"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<div class="container mt-4">
+    <div class="card shadow border-primary">
+        <div class="card-header bg-primary text-white">
+            <h3>🩺 Nueva Consulta Médica</h3>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@consultation" OnValidSubmit="HandleSave">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="fw-bold">Doctor:</label>
+                    <InputSelect @bind-Value="consultation.DoctorId" class="form-select">
+                        <option value="0">-- Seleccione --</option>
+                        @if (doctors != null)
+                        {
+                            foreach (var d in doctors)
+                            {
+                                <option value="@d.Id">Dr. @d.FirstName @d.LastName (@d.Specialty)</option>
+                            }
+                        }
+                    </InputSelect>
+                </div>
+
+                <h5 class="mt-4 text-muted border-bottom">Signos Vitales</h5>
+                <div class="row">
+                    <div class="col-md-4"><label>Peso (Kg)</label><InputNumber @bind-Value="consultation.WeightKg" class="form-control" /></div>
+                    <div class="col-md-4"><label>Altura (cm)</label><InputNumber @bind-Value="consultation.HeightCm" class="form-control" /></div>
+                    <div class="col-md-4"><label>Temp (°C)</label><InputNumber @bind-Value="consultation.TemperatureC" class="form-control" /></div>
+                </div>
+
+                <h5 class="mt-4 text-muted border-bottom">Diagnóstico y Tratamiento</h5>
+                <div class="mb-3"><label>Síntomas</label><InputTextArea @bind-Value="consultation.Symptoms" class="form-control" /></div>
+                <div class="mb-3"><label>Diagnóstico</label><InputText @bind-Value="consultation.Diagnosis" class="form-control" /></div>
+                <div class="mb-3"><label class="fw-bold text-success">Receta / Tratamiento</label><InputTextArea @bind-Value="consultation.TreatmentNotes" rows="4" class="form-control" /></div>
+
+                <button type="submit" class="btn btn-primary w-100 btn-lg mt-3">💾 Finalizar y Guardar</button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int PatientId { get; set; }
+    private CreateConsultationDto consultation = new CreateConsultationDto();
+    private List<DoctorDto>? doctors; // Lista simple para el dropdown
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        
+        consultation.PatientId = PatientId; // Amarramos la consulta al paciente actual
+
+        // Traemos la lista de doctores para llenar el select
+        // (Nota: Si esto falla es porque nos falta el GET en DoctorsController, avísame si no salen)
+        try {
+            doctors = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors");
+        } catch {}
+    }
+
+    private async Task HandleSave()
+    {
+        if (consultation.DoctorId == 0) return; // Validar que eligió doctor
+        var response = await Http.PostAsJsonAsync("api/MedicalRecords/Consultation", consultation);
+        if (response.IsSuccessStatusCode) Navigation.NavigateTo($"patients/{PatientId}");
+    }
+
+    // Clasecita rápida para listar doctores
+    public class DoctorDto { public int Id { get; set; } public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Specialty { get; set; } = ""; }
+}

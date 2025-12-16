@@ -1,4 +1,8 @@
 ﻿@inherits LayoutComponentBase
+@using Blazored.LocalStorage
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -6,6 +10,13 @@
 
     <main>
         <div class="top-row px-4">
+            @if (isLoggedIn)
+            {
+                <button class="btn btn-link text-danger fw-bold text-decoration-none me-3" @onclick="Logout">
+                    <span class="bi bi-box-arrow-right"></span> Cerrar Sesión
+                </button>
+            }
+            
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
         </div>
 
@@ -14,3 +25,27 @@
         </article>
     </main>
 </div>
+
+@code {
+    // Variable para controlar si mostramos o no el botón
+    private bool isLoggedIn = false;
+
+    // Este método se ejecuta en cuanto se carga la estructura de la página
+    protected override async Task OnInitializedAsync()
+    {
+        // Buscamos si existe la llave en el bolsillo
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+
+        // Si el token NO está vacío, entonces Sí estamos logueados
+        if (!string.IsNullOrEmpty(token))
+        {
+            isLoggedIn = true;
+        }
+    }
+
+    private async Task Logout()
+    {
+        await LocalStorage.RemoveItemAsync("authToken");
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}
