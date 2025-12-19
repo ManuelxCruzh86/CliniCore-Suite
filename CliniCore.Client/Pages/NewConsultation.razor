@@ -6,42 +6,81 @@
 @inject ILocalStorageService LocalStorage
 @inject NavigationManager Navigation
 
-<div class="container mt-4">
-    <div class="card shadow border-primary">
-        <div class="card-header bg-primary text-white">
-            <h3>🩺 Nueva Consulta Médica</h3>
+<div class="container mt-4" style="max-width: 800px;">
+    <div class="card shadow-lg border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h3 class="mb-0"><i class="bi bi-clipboard2-pulse"></i> Nuevo Expediente Clínico</h3>
+            <button class="btn btn-sm btn-light text-primary" @onclick="GoBack">Cancelar</button>
         </div>
-        <div class="card-body">
+        
+        <div class="card-body bg-light">
             <EditForm Model="@consultation" OnValidSubmit="HandleSave">
                 <DataAnnotationsValidator />
 
-                <div class="mb-3">
-                    <label class="fw-bold">Doctor:</label>
-                    <InputSelect @bind-Value="consultation.DoctorId" class="form-select">
-                        <option value="0">-- Seleccione --</option>
-                        @if (doctors != null)
-                        {
-                            foreach (var d in doctors)
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-body">
+                        <label class="form-label fw-bold text-primary">Doctor Responsable:</label>
+                        <InputSelect @bind-Value="consultation.DoctorId" class="form-select">
+                            <option value="0">-- Seleccione al Doctor --</option>
+                            @if (doctors != null)
                             {
-                                <option value="@d.Id">Dr. @d.FirstName @d.LastName (@d.Specialty)</option>
+                                foreach (var d in doctors)
+                                {
+                                    <option value="@d.Id">Dr. @d.FirstName @d.LastName (@d.Specialty)</option>
+                                }
                             }
-                        }
-                    </InputSelect>
+                        </InputSelect>
+                        @if(consultation.DoctorId == 0 && submitted) 
+                        { <p class="text-danger small">Debe seleccionar un doctor.</p> }
+                    </div>
                 </div>
 
-                <h5 class="mt-4 text-muted border-bottom">Signos Vitales</h5>
-                <div class="row">
-                    <div class="col-md-4"><label>Peso (Kg)</label><InputNumber @bind-Value="consultation.WeightKg" class="form-control" /></div>
-                    <div class="col-md-4"><label>Altura (cm)</label><InputNumber @bind-Value="consultation.HeightCm" class="form-control" /></div>
-                    <div class="col-md-4"><label>Temp (°C)</label><InputNumber @bind-Value="consultation.TemperatureC" class="form-control" /></div>
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-white fw-bold">Signos Vitales</div>
+                    <div class="card-body row">
+                        <div class="col-md-4">
+                            <label>Peso (kg)</label>
+                            <InputNumber @bind-Value="consultation.WeightKg" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label>Altura (cm)</label>
+                            <InputNumber @bind-Value="consultation.HeightCm" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label>Temp (°C)</label>
+                            <InputNumber @bind-Value="consultation.TemperatureC" class="form-control" />
+                        </div>
+                    </div>
                 </div>
 
-                <h5 class="mt-4 text-muted border-bottom">Diagnóstico y Tratamiento</h5>
-                <div class="mb-3"><label>Síntomas</label><InputTextArea @bind-Value="consultation.Symptoms" class="form-control" /></div>
-                <div class="mb-3"><label>Diagnóstico</label><InputText @bind-Value="consultation.Diagnosis" class="form-control" /></div>
-                <div class="mb-3"><label class="fw-bold text-success">Receta / Tratamiento</label><InputTextArea @bind-Value="consultation.TreatmentNotes" rows="4" class="form-control" /></div>
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-white fw-bold">Datos Clínicos</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Síntomas / Motivo de Consulta</label>
+                            <InputTextArea @bind-Value="consultation.Symptoms" class="form-control" rows="2" />
+                            <ValidationMessage For="@(() => consultation.Symptoms)" />
+                        </div>
 
-                <button type="submit" class="btn btn-primary w-100 btn-lg mt-3">💾 Finalizar y Guardar</button>
+                        <div class="mb-3">
+                            <label class="form-label">Diagnóstico</label>
+                            <InputText @bind-Value="consultation.Diagnosis" class="form-control fw-bold" />
+                            <ValidationMessage For="@(() => consultation.Diagnosis)" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-success">Receta y Tratamiento</label>
+                            <InputTextArea @bind-Value="consultation.TreatmentNotes" class="form-control border-success" rows="5" placeholder="Escriba medicamentos, dosis y frecuencia..." />
+                            <ValidationMessage For="@(() => consultation.TreatmentNotes)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-save"></i> Guardar Expediente e Imprimir Receta
+                    </button>
+                </div>
             </EditForm>
         </div>
     </div>
@@ -50,29 +89,40 @@
 @code {
     [Parameter] public int PatientId { get; set; }
     private CreateConsultationDto consultation = new CreateConsultationDto();
-    private List<DoctorDto>? doctors; // Lista simple para el dropdown
+    private List<DoctorDto>? doctors;
+    private bool submitted = false;
 
     protected override async Task OnInitializedAsync()
     {
         var token = await LocalStorage.GetItemAsync<string>("authToken");
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        
-        consultation.PatientId = PatientId; // Amarramos la consulta al paciente actual
 
-        // Traemos la lista de doctores para llenar el select
-        // (Nota: Si esto falla es porque nos falta el GET en DoctorsController, avísame si no salen)
+        consultation.PatientId = PatientId;
+
+        // Cargar doctores
         try {
             doctors = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors");
-        } catch {}
+        } catch {
+            // Si falla la lista queda vacía
+        }
     }
 
     private async Task HandleSave()
     {
-        if (consultation.DoctorId == 0) return; // Validar que eligió doctor
+        submitted = true;
+        if (consultation.DoctorId == 0) return; // Validar doctor
+
         var response = await Http.PostAsJsonAsync("api/MedicalRecords/Consultation", consultation);
-        if (response.IsSuccessStatusCode) Navigation.NavigateTo($"patients/{PatientId}");
+        
+        if (response.IsSuccessStatusCode)
+        {
+            // Volvemos al perfil del paciente para ver el historial
+            Navigation.NavigateTo($"patients/{PatientId}");
+        }
     }
 
-    // Clasecita rápida para listar doctores
+    private void GoBack() => Navigation.NavigateTo($"patients/{PatientId}");
+
+    // DTO Interno para la lista de doctores
     public class DoctorDto { public int Id { get; set; } public string FirstName { get; set; } = ""; public string LastName { get; set; } = ""; public string Specialty { get; set; } = ""; }
 }

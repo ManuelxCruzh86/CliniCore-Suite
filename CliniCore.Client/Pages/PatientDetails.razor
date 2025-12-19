@@ -13,9 +13,9 @@
     <button class="btn btn-outline-secondary mb-3" @onclick='() => Navigation.NavigateTo("patients")'>
         <i class="bi bi-arrow-left"></i> Volver al listado
     </button>
-    <a href="patients/@Id/new-consultation" class="btn btn-primary float-end">
-    <i class="bi bi-file-medical-fill"></i> Nueva Consulta
-    </a>
+    <a href="patients/@Id/new-consultation" class="btn btn-primary">
+    <i class="bi bi-journal-plus"></i> Nueva Consulta
+</a>
 
     @if (patient == null)
     {
@@ -98,10 +98,8 @@
         
         // JS para descargar archivo con Token
         var fileUrl = $"{Http.BaseAddress}api/MedicalRecords/{recordId}/Prescription";
-        
-        // Llamamos a un script simple para descargar
-        // Usar el token en URL si fuera simple, pero como es seguro, mejor abrimos en nueva pestaña 
-        // Haremos la descarga via C# y serviremos al JS)
+       
+        //  Descarga via C# y serviremos al JS)
         
         var response = await Http.GetAsync($"api/MedicalRecords/{recordId}/Prescription");
         if (response.IsSuccessStatusCode)
