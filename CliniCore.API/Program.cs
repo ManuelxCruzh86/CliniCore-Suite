@@ -54,6 +54,19 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddScoped<CliniCore.API.Services.DataSeederService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorClient", policy =>
+    {
+        policy.WithOrigins(
+                  "http://localhost:5086",  // <--- El puerto HTTP de tu Frontend
+                  "https://localhost:5086"  // <--- El puerto HTTPS 
+              )
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -68,6 +81,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// 2. ACTIVAR EL MIDDLEWARE (Justo aquí)
+app.UseCors("AllowBlazorClient");
 
 //ACTIVAR SEGURIDAD
 app.UseAuthentication(); //  Verifica el Token

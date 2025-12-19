@@ -1,0 +1,69 @@
+@page "/doctors/create"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<div class="container mt-4" style="max-width: 600px;">
+    <div class="card shadow border-info">
+        <div class="card-header bg-info text-white">
+            <h3 class="mb-0"><i class="bi bi-person-badge"></i> Registrar Doctor</h3>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@doctor" OnValidSubmit="HandleCreate">
+                <DataAnnotationsValidator />
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label>Nombre</label>
+                        <InputText @bind-Value="doctor.FirstName" class="form-control" />
+                        <ValidationMessage For="@(() => doctor.FirstName)" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label>Apellido</label>
+                        <InputText @bind-Value="doctor.LastName" class="form-control" />
+                        <ValidationMessage For="@(() => doctor.LastName)" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Especialidad</label>
+                    <InputSelect @bind-Value="doctor.Specialty" class="form-select">
+                        <option value="General">Medicina General</option>
+                        <option value="Cardiología">Cardiología</option>
+                        <option value="Pediatría">Pediatría</option>
+                        <option value="Dermatología">Dermatología</option>
+                        <option value="Neurología">Neurología</option>
+                    </InputSelect>
+                </div>
+
+                <div class="mb-3">
+                    <label>Cédula Profesional</label>
+                    <InputText @bind-Value="doctor.LicenseNumber" class="form-control" />
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-info text-white">Guardar Doctor</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateDoctorDto doctor = new CreateDoctorDto();
+
+    private async Task HandleCreate()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await Http.PostAsJsonAsync("api/Doctors", doctor);
+        if (response.IsSuccessStatusCode)
+        {
+            Navigation.NavigateTo("/"); // Regresamos al Home
+        }
+    }
+}

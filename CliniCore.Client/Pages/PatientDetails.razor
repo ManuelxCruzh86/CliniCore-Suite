@@ -1,0 +1,114 @@
+@page "/patients/{id:int}"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Expediente - CliniCore</PageTitle>
+
+<div class="container mt-4">
+    <button class="btn btn-outline-secondary mb-3" @onclick='() => Navigation.NavigateTo("patients")'>
+        <i class="bi bi-arrow-left"></i> Volver al listado
+    </button>
+    <a href="patients/@Id/new-consultation" class="btn btn-primary">
+    <i class="bi bi-journal-plus"></i> Nueva Consulta
+</a>
+
+    @if (patient == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border text-primary"></div>
+            <p>Cargando expediente...</p>
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm mb-4 border-primary">
+            <div class="card-body">
+                <h2 class="card-title text-primary">@patient.FirstName @patient.LastName</h2>
+                <div class="row mt-3">
+                    <div class="col-md-3"><strong>Edad:</strong> @(DateTime.Now.Year - patient.BirthDate.Year) años</div>
+                    <div class="col-md-3"><strong>Género:</strong> @patient.Gender</div>
+                    <div class="col-md-3"><strong>Estado:</strong> @(patient.IsActive ? "Activo" : "Inactivo")</div>
+                </div>
+            </div>
+        </div>
+
+        <h3 class="mb-3"><i class="bi bi-journal-medical"></i> Historial de Consultas</h3>
+
+        @if (history == null || !history.Any())
+        {
+             <div class="alert alert-info">Este paciente aún no tiene consultas registradas.</div>
+        }
+        else
+        {
+            <div class="list-group shadow-sm">
+                @foreach (var record in history)
+                {
+                    <div class="list-group-item list-group-item-action flex-column align-items-start p-4">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1 text-success">@record.Diagnosis</h5>
+                            <small class="text-muted">@record.CreatedAt.ToLongDateString()</small>
+                        </div>
+                        <p class="mb-1 mt-2"><strong>Tratamiento:</strong> @record.TreatmentNotes</p>
+                        
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-danger" @onclick="() => DownloadPrescription(record.Id)">
+                                <i class="bi bi-file-earmark-pdf-fill"></i> Descargar Receta PDF
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; } // Recibe el ID de la URL
+    private PatientDto? patient;
+    private List<MedicalRecordDto>? history;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        //  Cargar datos del paciente
+        // Para hacerlo 'Enterprise', deberías tener GET api/Pacientes/{id}. 
+        try {
+             patient = await Http.GetFromJsonAsync<PatientDto>($"api/Pacientes/{Id}");
+             
+             // Cargar historial
+             history = await Http.GetFromJsonAsync<List<MedicalRecordDto>>($"api/MedicalRecords/Patient/{Id}");
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadPrescription(int recordId)
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        
+        // JS para descargar archivo con Token
+        var fileUrl = $"{Http.BaseAddress}api/MedicalRecords/{recordId}/Prescription";
+       
+        //  Descarga via C# y serviremos al JS)
+        
+        var response = await Http.GetAsync($"api/MedicalRecords/{recordId}/Prescription");
+        if (response.IsSuccessStatusCode)
+        {
+            var fileBytes = await response.Content.ReadAsByteArrayAsync();
+            var fileName = $"Receta_{recordId}.pdf";
+            
+            // JS para guardar
+            await JS.InvokeVoidAsync("downloadFileFromStream", fileName, Convert.ToBase64String(fileBytes));
+        }
+    }
+}

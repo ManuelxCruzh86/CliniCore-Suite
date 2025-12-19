@@ -1,0 +1,145 @@
+﻿@page "/patients"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+@inject IJSRuntime JS 
+
+<PageTitle>Pacientes - CliniCore</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3>👥 Listado de Pacientes</h3>
+        <a href="patients/create" class="btn btn-success">
+            <span class="bi bi-plus-circle"></span> Nuevo Paciente
+        </a>
+    </div>
+
+    <div class="input-group mb-3 shadow-sm">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" placeholder="Buscar por nombre..." 
+               @bind="searchString" @bind:event="oninput" />
+    </div>
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (patients == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2">Cargando datos...</p>
+        </div>
+    }
+    else if (!FilteredPatients.Any())
+    {
+        <div class="alert alert-warning text-center">
+            No se encontraron pacientes que coincidan con "<strong>@searchString</strong>".
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive shadow-sm p-3 mb-5 bg-body rounded">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre Completo</th>
+                        <th>Edad</th>
+                        <th>Género</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in FilteredPatients)
+                    {
+                        <tr>
+                            <td>@p.Id</td>
+                            <td class="fw-bold">@p.FirstName @p.LastName</td>
+                            <td>@(DateTime.Now.Year - p.BirthDate.Year) años</td>
+                            <td>
+                                @if(p.Gender == "Male") { <span class="badge bg-info text-dark">M</span> }
+                                else { <span class="badge bg-danger">F</span> }
+                            </td>
+                            <td>
+                                @if (p.IsActive)
+                                {
+                                    <span class="badge bg-success">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                }
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="patients/@p.Id" class="btn btn-sm btn-outline-primary" title="Ver Expediente">Ver</a>
+                                    <a href="patients/edit/@p.Id" class="btn btn-sm btn-outline-warning text-dark" title="Editar">Editar</a>
+                                    <button class="btn btn-sm btn-outline-danger" title="Eliminar" @onclick="() => DeletePatient(p.Id, p.FirstName)">Eliminar</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<PatientDto>? patients;
+    private string? errorMessage;
+    
+    // Variable para guardar lo que escribe el usuario
+    private string searchString = "";
+
+    // PROPIEDAD MÁGICA: Filtra la lista original basándose en el texto
+    private List<PatientDto> FilteredPatients => 
+        patients?.Where(p => 
+            string.IsNullOrWhiteSpace(searchString) || 
+            p.FirstName.Contains(searchString, StringComparison.OrdinalIgnoreCase) ||
+            p.LastName.Contains(searchString, StringComparison.OrdinalIgnoreCase)
+        ).ToList() ?? new List<PatientDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            if (string.IsNullOrEmpty(token))
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            patients = await Http.GetFromJsonAsync<List<PatientDto>>("api/Pacientes");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error al cargar: {ex.Message}";
+        }
+    }
+
+    private async Task DeletePatient(int id, string name)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"¿Está seguro de eliminar a {name}?");
+        if (confirmed)
+        {
+            try 
+            {
+                var response = await Http.DeleteAsync($"api/Pacientes/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    patients?.RemoveAll(p => p.Id == id);
+                }
+            }
+            catch (Exception ex) { errorMessage = $"Error: {ex.Message}"; }
+        }
+    }
+}

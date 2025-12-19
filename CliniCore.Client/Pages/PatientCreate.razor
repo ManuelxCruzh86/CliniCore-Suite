@@ -1,0 +1,87 @@
+@page "/patients/create"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<div class="container mt-4" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h3 class="mb-0"><i class="bi bi-person-plus-fill"></i> Registrar Nuevo Paciente</h3>
+        </div>
+        <div class="card-body">
+            
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger">@errorMessage</div>
+            }
+
+            <EditForm Model="@patient" OnValidSubmit="HandleCreate">
+                <DataAnnotationsValidator />
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nombre</label>
+                        <InputText @bind-Value="patient.FirstName" class="form-control" />
+                        <ValidationMessage For="@(() => patient.FirstName)" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Apellido</label>
+                        <InputText @bind-Value="patient.LastName" class="form-control" />
+                        <ValidationMessage For="@(() => patient.LastName)" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Fecha de Nacimiento</label>
+                    <InputDate @bind-Value="patient.BirthDate" class="form-control" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Género</label>
+                    <InputSelect @bind-Value="patient.Gender" class="form-select">
+                        <option value="Male">Masculino</option>
+                        <option value="Female">Femenino</option>
+                    </InputSelect>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <button type="button" class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("patients")'>Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar Paciente</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreatePatientDto patient = new CreatePatientDto();
+    private string errorMessage = "";
+
+    private async Task HandleCreate()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // POST a la API
+            var response = await Http.PostAsJsonAsync("api/Pacientes", patient);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Navigation.NavigateTo("patients");
+            }
+            else
+            {
+                errorMessage = "Error al guardar. Verifique los datos.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error de conexión: {ex.Message}";
+        }
+    }
+}

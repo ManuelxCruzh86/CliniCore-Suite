@@ -3,6 +3,7 @@ using CliniCore.Infrastructure.Data;
 using CliniCore.API.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace CliniCore.API.Controllers
 {

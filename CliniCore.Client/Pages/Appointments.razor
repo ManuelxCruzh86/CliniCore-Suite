@@ -1,0 +1,198 @@
+﻿@page "/appointments"
+@using CliniCore.Client.DTOs
+@using Blazored.LocalStorage
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card shadow border-primary mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-plus"></i> Agendar Cita</h5>
+                </div>
+                <div class="card-body">
+                    
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill"></i> @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+                    <EditForm Model="@newAppointment" OnValidSubmit="HandleSchedule">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label>Paciente</label>
+                            <InputSelect @bind-Value="newAppointment.PatientId" class="form-select">
+                                <option value="0">-- Seleccionar --</option>
+                                @if (patients != null)
+                                {
+                                    foreach (var p in patients)
+                                    {
+                                        <option value="@p.Id">@p.FirstName @p.LastName</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Doctor</label>
+                            <InputSelect @bind-Value="newAppointment.DoctorId" class="form-select">
+                                <option value="0">-- Seleccionar --</option>
+                                @if (doctors != null)
+                                {
+                                    foreach (var d in doctors)
+                                    {
+                                        <option value="@d.Id">Dr. @d.FirstName @d.LastName</option>
+                                    }
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Fecha y Hora</label>
+                            <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="newAppointment.ScheduledDate" class="form-control" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Motivo</label>
+                            <InputText @bind-Value="newAppointment.Reason" class="form-control" placeholder="Ej. Revisión mensual" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">Agendar</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            <h3 class="mb-3">📅 Próximas Citas</h3>
+            
+            @if (appointments == null)
+            {
+                <div class="spinner-border text-primary"></div>
+            }
+            else if (!appointments.Any())
+            {
+                <div class="alert alert-info">No hay citas programadas. ¡Agenda la primera!</div>
+            }
+            else
+            {
+                <div class="list-group shadow-sm">
+                    @foreach (var app in appointments)
+                    {
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1 text-primary">@app.ScheduledDate.ToString("dd/MM/yyyy HH:mm tt")</h5>
+                                <p class="mb-1 fw-bold">
+                                    <i class="bi bi-person-circle"></i> @(app.Patient?.FirstName ?? "Paciente") @(app.Patient?.LastName)
+                                </p>
+                                <small class="text-muted">
+                                    Con: Dr. @(app.Doctor?.LastName ?? "No asignado") | Motivo: @app.Reason
+                                </small>
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => CancelAppointment(app.Id)">
+                                <i class="bi bi-x-lg"></i> Cancelar
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<AppointmentDto>? appointments;
+    private List<PatientDto>? patients;
+    private List<DoctorDto>? doctors;
+    
+    // VARIABLES PARA MENSAJES
+    private string? successMessage;
+    private string? errorMessage;
+
+    private CreateAppointmentDto newAppointment = new CreateAppointmentDto 
+    { 
+        ScheduledDate = DateTime.Now.AddDays(1).Date.AddHours(9) 
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try {
+            appointments = await Http.GetFromJsonAsync<List<AppointmentDto>>("api/Appointments");
+            patients = await Http.GetFromJsonAsync<List<PatientDto>>("api/Pacientes");
+            doctors = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors");
+        } catch (Exception ex) { Console.WriteLine(ex.Message); }
+    }
+
+    private async Task HandleSchedule()
+    {
+        // Limpiamos mensajes previos
+        successMessage = null;
+        errorMessage = null;
+
+        // Validación simple local
+        if (newAppointment.PatientId == 0 || newAppointment.DoctorId == 0) 
+        {
+            errorMessage = "Por favor selecciona un paciente y un doctor.";
+            return;
+        }
+
+        var response = await Http.PostAsJsonAsync("api/Appointments", newAppointment);
+
+        if (response.IsSuccessStatusCode)
+        {
+            // SI FUE ÉXITO
+            successMessage = "¡Cita agendada correctamente!";
+            await LoadData(); 
+            
+            // Limpiamos el formulario para la siguiente
+            newAppointment = new CreateAppointmentDto 
+            { 
+                ScheduledDate = DateTime.Now.AddDays(1).Date.AddHours(9) 
+            };
+        }
+        else
+        {
+            // SI FALLÓ (Leemos lo que dijo la API)
+            // Esto leerá "No puedes agendar citas en el pasado" desde el backend
+            var errorContent = await response.Content.ReadAsStringAsync();
+            
+            // A veces el error viene con comillas extra, las quitamos para que se vea bonito
+            errorMessage = $"No se pudo agendar: {errorContent.Replace("\"", "")}";
+        }
+    }
+
+    private async Task CancelAppointment(int id)
+    {
+        bool confirm = await JS.InvokeAsync<bool>("confirm", "¿Seguro que deseas cancelar esta cita?");
+        if (confirm)
+        {
+            await Http.DeleteAsync($"api/Appointments/{id}");
+            successMessage = "Cita cancelada correctamente."; // Avisamos también al borrar
+            await LoadData();
+        }
+    }
+}
