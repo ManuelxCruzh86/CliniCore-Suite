@@ -5,65 +5,206 @@
 @inject HttpClient Http
 @inject ILocalStorageService LocalStorage
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<div class="container mt-4" style="max-width: 600px;">
-    <div class="card shadow border-info">
-        <div class="card-header bg-info text-white">
-            <h3 class="mb-0"><i class="bi bi-person-badge"></i> Registrar Doctor</h3>
+<div class="container mt-4">
+    <div class="row">
+        
+        <div class="col-md-5">
+            <div class="card shadow border-info mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-plus-fill"></i> Registrar Nuevo Doctor</h5>
+                </div>
+                <div class="card-body">
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill"></i> @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+                        </div>
+                    }
+                    <EditForm Model="@newDoctor" OnValidSubmit="HandleCreate">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="mb-3">
+                            <label>Nombre</label>
+                            <InputText @bind-Value="newDoctor.FirstName" class="form-control" placeholder="Ej. Gregory" />
+                        </div>
+                        <div class="mb-3">
+                            <label>Apellido</label>
+                            <InputText @bind-Value="newDoctor.LastName" class="form-control" placeholder="Ej. House" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Especialidad</label>
+                            <InputSelect @bind-Value="newDoctor.Specialty" class="form-select">
+                                <option value="General">Medicina General</option>
+                                <option value="Cardiología">Cardiología</option>
+                                <option value="Pediatría">Pediatría</option>
+                                <option value="Dermatología">Dermatología</option>
+                                <option value="Neurología">Neurología</option>
+                                <option value="Cirugía">Cirugía</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Cédula Profesional</label>
+                            <InputText @bind-Value="newDoctor.LicenseNumber" class="form-control" maxlength="8" />
+                            <ValidationMessage For="@(() => newDoctor.LicenseNumber)" />
+                        </div>
+
+                        <button type="submit" class="btn btn-info text-white w-100">Guardar Doctor</button>
+                    </EditForm>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <EditForm Model="@doctor" OnValidSubmit="HandleCreate">
-                <DataAnnotationsValidator />
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label>Nombre</label>
-                        <InputText @bind-Value="doctor.FirstName" class="form-control" />
-                        <ValidationMessage For="@(() => doctor.FirstName)" />
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label>Apellido</label>
-                        <InputText @bind-Value="doctor.LastName" class="form-control" />
-                        <ValidationMessage For="@(() => doctor.LastName)" />
-                    </div>
-                </div>
 
-                <div class="mb-3">
-                    <label>Especialidad</label>
-                    <InputSelect @bind-Value="doctor.Specialty" class="form-select">
-                        <option value="General">Medicina General</option>
-                        <option value="Cardiología">Cardiología</option>
-                        <option value="Pediatría">Pediatría</option>
-                        <option value="Dermatología">Dermatología</option>
-                        <option value="Neurología">Neurología</option>
-                    </InputSelect>
+        <div class="col-md-7">
+            <div class="card shadow">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0 text-secondary"><i class="bi bi-list-ul"></i> Plantilla de Doctores</h5>
                 </div>
-
-                <div class="mb-3">
-                    <label>Cédula Profesional</label>
-                    <InputText @bind-Value="doctor.LicenseNumber" class="form-control" />
+                <div class="card-body p-0">
+                    @if (doctorsList == null)
+                    {
+                        <div class="text-center p-4">
+                            <div class="spinner-border text-info" role="status"></div>
+                            <p>Cargando lista...</p>
+                        </div>
+                    }
+                    else if (!doctorsList.Any())
+                    {
+                        <div class="alert alert-warning m-3">No hay doctores registrados.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Especialidad</th>
+                                        <th>Cédula</th>
+                                        <th>Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var doc in doctorsList)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">Dr. @doc.FirstName @doc.LastName</td>
+                                            <td><span class="badge bg-light text-dark border">@doc.Specialty</span></td>
+                                            <td class="small text-muted">@doc.LicenseNumber</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-danger" title="Dar de baja" @onclick="() => DeleteDoctor(doc.Id, doc.LastName)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
-
-                <div class="d-flex justify-content-end mt-4">
-                    <button type="submit" class="btn btn-info text-white">Guardar Doctor</button>
-                </div>
-            </EditForm>
+            </div>
         </div>
     </div>
 </div>
 
 @code {
-    private CreateDoctorDto doctor = new CreateDoctorDto();
+    private CreateDoctorDto newDoctor = new CreateDoctorDto();
+    private List<DoctorDto>? doctorsList;
+
+    // 2. VARIABLES PARA MENSAJES
+    private string? successMessage;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await LocalStorage.GetItemAsync<string>("authToken");
+        if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        await LoadDoctors();
+    }
+
+    private async Task LoadDoctors()
+    {
+        try
+        {
+            doctorsList = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
 
     private async Task HandleCreate()
     {
-        var token = await LocalStorage.GetItemAsync<string>("authToken");
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // Limpiamos mensajes anteriores
+        successMessage = null;
+        errorMessage = null;
 
-        var response = await Http.PostAsJsonAsync("api/Doctors", doctor);
-        if (response.IsSuccessStatusCode)
+        try 
         {
-            Navigation.NavigateTo("/"); // Regresamos al Home
+            var response = await Http.PostAsJsonAsync("api/Doctors", newDoctor);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                // ÉXITO
+                successMessage = $"¡El Dr. {newDoctor.LastName} ha sido registrado correctamente!";
+                newDoctor = new CreateDoctorDto(); // Limpiar form
+                await LoadDoctors(); // Actualizar tabla
+            }
+            else
+            {
+                // ERROR
+                errorMessage = "No se pudo registrar. Verifique que los datos sean correctos.";
+            }
+        }
+        catch(Exception ex)
+        {
+            errorMessage = $"Error de conexión: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteDoctor(int id, string lastName)
+    {
+        // Limpiamos mensajes
+        successMessage = null;
+        errorMessage = null;
+
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"¿Seguro que deseas dar de baja al Dr. {lastName}?");
+        if (confirm)
+        {
+            try 
+            {
+                var response = await Http.DeleteAsync($"api/Doctors/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    successMessage = "Doctor eliminado correctamente.";
+                    await LoadDoctors();
+                }
+                else 
+                {
+                    errorMessage = "No se pudo eliminar al doctor.";
+                }
+            }
+            catch(Exception ex)
+            {
+                errorMessage = $"Error: {ex.Message}";
+            }
         }
     }
 }
