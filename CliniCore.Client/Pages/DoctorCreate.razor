@@ -19,47 +19,66 @@
 
                     @if (!string.IsNullOrEmpty(successMessage))
                     {
-                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <div class="alert alert-success alert-dismissible fade show">
                             <i class="bi bi-check-circle-fill"></i> @successMessage
                             <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
                         </div>
                     }
-
                     @if (!string.IsNullOrEmpty(errorMessage))
                     {
-                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <div class="alert alert-danger alert-dismissible fade show">
                             <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
                             <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
                         </div>
                     }
+
                     <EditForm Model="@newDoctor" OnValidSubmit="HandleCreate">
                         <DataAnnotationsValidator />
                         
                         <div class="mb-3">
                             <label>Nombre</label>
                             <InputText @bind-Value="newDoctor.FirstName" class="form-control" placeholder="Ej. Gregory" />
+                            <ValidationMessage For="@(() => newDoctor.FirstName)" />
                         </div>
                         <div class="mb-3">
                             <label>Apellido</label>
                             <InputText @bind-Value="newDoctor.LastName" class="form-control" placeholder="Ej. House" />
+                            <ValidationMessage For="@(() => newDoctor.LastName)" />
                         </div>
 
                         <div class="mb-3">
                             <label>Especialidad</label>
-                            <InputSelect @bind-Value="newDoctor.Specialty" class="form-select">
-                                <option value="General">Medicina General</option>
+                            
+                            <InputSelect Value="@selectedSpecialty" 
+                                         ValueChanged="@((string s) => OnSpecialtyChanged(s))"
+                                         ValueExpression="@(() => selectedSpecialty)"
+                                         class="form-select">
+                                <option value="Medicina General">Medicina General</option>
                                 <option value="Cardiología">Cardiología</option>
                                 <option value="Pediatría">Pediatría</option>
                                 <option value="Dermatología">Dermatología</option>
                                 <option value="Neurología">Neurología</option>
                                 <option value="Cirugía">Cirugía</option>
+                                <option value="Ginecología">Ginecología</option>
+                                <option value="Traumatología">Traumatología</option>
+                                <option value="Otro">Otro (Especifique...)</option>
                             </InputSelect>
+
+                            @if (selectedSpecialty == "Otro")
+                            {
+                                <div class="mt-2 animate__animated animate__fadeIn">
+                                    <label class="text-muted small">Escriba la especialidad:</label>
+                                    <InputText @bind-Value="newDoctor.Specialty" class="form-control border-info" placeholder="Ej. Oncología" />
+                                    <ValidationMessage For="@(() => newDoctor.Specialty)" />
+                                </div>
+                            }
                         </div>
 
                         <div class="mb-3">
                             <label>Cédula Profesional</label>
-                            <InputText @bind-Value="newDoctor.LicenseNumber" class="form-control" maxlength="8" />
+                            <InputText @bind-Value="newDoctor.LicenseNumber" class="form-control" maxlength="8" inputmode="numeric" />
                             <ValidationMessage For="@(() => newDoctor.LicenseNumber)" />
+                            <small class="text-muted" style="font-size: 0.75rem;">Solo números (7 u 8 dígitos).</small>
                         </div>
 
                         <button type="submit" class="btn btn-info text-white w-100">Guardar Doctor</button>
@@ -76,10 +95,7 @@
                 <div class="card-body p-0">
                     @if (doctorsList == null)
                     {
-                        <div class="text-center p-4">
-                            <div class="spinner-border text-info" role="status"></div>
-                            <p>Cargando lista...</p>
-                        </div>
+                        <div class="text-center p-4"><div class="spinner-border text-info"></div><p>Cargando...</p></div>
                     }
                     else if (!doctorsList.Any())
                     {
@@ -105,7 +121,7 @@
                                             <td><span class="badge bg-light text-dark border">@doc.Specialty</span></td>
                                             <td class="small text-muted">@doc.LicenseNumber</td>
                                             <td>
-                                                <button class="btn btn-sm btn-outline-danger" title="Dar de baja" @onclick="() => DeleteDoctor(doc.Id, doc.LastName)">
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteDoctor(doc.Id, doc.LastName)">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </td>
@@ -124,87 +140,75 @@
 @code {
     private CreateDoctorDto newDoctor = new CreateDoctorDto();
     private List<DoctorDto>? doctorsList;
-
-    // 2. VARIABLES PARA MENSAJES
     private string? successMessage;
     private string? errorMessage;
+
+    private string selectedSpecialty = "Medicina General";
 
     protected override async Task OnInitializedAsync()
     {
         var token = await LocalStorage.GetItemAsync<string>("authToken");
         if (string.IsNullOrEmpty(token)) { Navigation.NavigateTo("/login"); return; }
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
+        
+        newDoctor.Specialty = "Medicina General";
+        
         await LoadDoctors();
+    }
+
+    private void OnSpecialtyChanged(string value)
+    {
+        selectedSpecialty = value; 
+
+        if (value != "Otro")
+        {
+            newDoctor.Specialty = value;
+        }
+        else
+        {
+            newDoctor.Specialty = "";
+        }
     }
 
     private async Task LoadDoctors()
     {
-        try
-        {
-            doctorsList = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
+        try { doctorsList = await Http.GetFromJsonAsync<List<DoctorDto>>("api/Doctors"); }
+        catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
     }
 
     private async Task HandleCreate()
     {
-        // Limpiamos mensajes anteriores
-        successMessage = null;
-        errorMessage = null;
+        successMessage = null; errorMessage = null;
 
         try 
         {
             var response = await Http.PostAsJsonAsync("api/Doctors", newDoctor);
-            
             if (response.IsSuccessStatusCode)
             {
-                // ÉXITO
                 successMessage = $"¡El Dr. {newDoctor.LastName} ha sido registrado correctamente!";
-                newDoctor = new CreateDoctorDto(); // Limpiar form
-                await LoadDoctors(); // Actualizar tabla
+                
+                // Resetear Formulario
+                newDoctor = new CreateDoctorDto(); 
+                selectedSpecialty = "Medicina General"; 
+                newDoctor.Specialty = "Medicina General";
+                
+                await LoadDoctors();
             }
             else
             {
-                // ERROR
-                errorMessage = "No se pudo registrar. Verifique que los datos sean correctos.";
+                errorMessage = "No se pudo registrar. Verifique los datos.";
             }
         }
-        catch(Exception ex)
-        {
-            errorMessage = $"Error de conexión: {ex.Message}";
-        }
+        catch(Exception ex) { errorMessage = $"Error: {ex.Message}"; }
     }
 
     private async Task DeleteDoctor(int id, string lastName)
     {
-        // Limpiamos mensajes
-        successMessage = null;
-        errorMessage = null;
-
-        bool confirm = await JS.InvokeAsync<bool>("confirm", $"¿Seguro que deseas dar de baja al Dr. {lastName}?");
+        bool confirm = await JS.InvokeAsync<bool>("confirm", $"¿Eliminar al Dr. {lastName}?");
         if (confirm)
         {
-            try 
-            {
-                var response = await Http.DeleteAsync($"api/Doctors/{id}");
-                if (response.IsSuccessStatusCode)
-                {
-                    successMessage = "Doctor eliminado correctamente.";
-                    await LoadDoctors();
-                }
-                else 
-                {
-                    errorMessage = "No se pudo eliminar al doctor.";
-                }
-            }
-            catch(Exception ex)
-            {
-                errorMessage = $"Error: {ex.Message}";
-            }
+            await Http.DeleteAsync($"api/Doctors/{id}");
+            await LoadDoctors();
         }
     }
 }
